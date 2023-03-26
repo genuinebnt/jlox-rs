@@ -1,37 +1,19 @@
 use std::env;
-use std::fs;
+use std::process::exit;
 
-use std::io::Write;
-use std::io::{stdin, stdout};
-
-fn run_file(path: &str) {
-    let bytes = fs::read(path).unwrap();
-}
-
-fn run_prompt() {
-    loop {
-        print!("> ");
-        stdout().flush().unwrap();
-
-        let mut line = String::new();
-        stdin().read_line(&mut line).unwrap();
-
-        println!("{}", line);
-
-        if line.trim() == "exit" {
-            break;
-        }
-    }
-}
+mod lox;
+mod scanner;
+mod token;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
 
     if args.len() > 2 {
-        println!("Usage jlox [script]");
-    } else if args.len() == 2 {
-        run_file(&args[0]);
+        println!("Usage: jlox-rs [script]");
+        exit(0);
+    } else if args.len() == 1 {
+        todo!()
     } else {
-        run_prompt();
+        todo!()
     }
 }
