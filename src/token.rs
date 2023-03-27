@@ -17,15 +17,16 @@ pub enum Token {
     BangEqual(String, usize),
     Equal(char, usize),
     EqualEqual(String, usize),
-    Greater(String, usize),
+    Greater(char, usize),
     GreaterEqual(String, usize),
-    Less(String, usize),
+    Less(char, usize),
     LessEqual(String, usize),
 
     // Literals.
     Identifier,
     String,
     Number,
+    Comment,
 
     // Keywords.
     And,
@@ -48,6 +49,7 @@ pub enum Token {
     Eof,
 
     Invalid(char, usize),
+    Skip,
 }
 
 #[derive(Debug, PartialEq)]

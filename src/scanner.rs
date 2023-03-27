@@ -7,6 +7,7 @@ type Result<T> = std::result::Result<T, ScannerError>;
 #[derive(Debug)]
 pub enum ScannerError {
     UnexpectedToken(char, usize),
+    UnterminatedString(String, usize),
 }
 
 impl Display for ScannerError {
@@ -14,6 +15,9 @@ impl Display for ScannerError {
         match self {
             ScannerError::UnexpectedToken(e, pos) => {
                 write!(f, "Unexpected token {} at position {}", e, pos)
+            }
+            ScannerError::UnterminatedString(s, line) => {
+                write!(f, "Unterminated string {} at line {}", s, line)
             }
         }
     }
@@ -23,6 +27,7 @@ impl Display for ScannerError {
 pub struct Scanner {
     source: String,
     tokens: Vec<Token>,
+    line: usize,
 }
 
 impl Scanner {
@@ -30,17 +35,14 @@ impl Scanner {
         Scanner {
             source,
             tokens: Vec::new(),
+            line: 1,
         }
     }
 
     pub fn scan_tokens_iter(&mut self) -> Result<&Vec<Token>> {
-        let mut char_indices = self
-            .source
-            .char_indices()
-            .peekable()
-            .filter(|(pos, c)| !c.is_ascii_whitespace());
+        let mut char_indice = self.source.char_indices().peekable();
 
-        while let Some((pos, c)) = char_indices.next() {
+        while let Some((pos, c)) = char_indice.next() {
             let token = match c {
                 '(' => Ok(Token::LeftParen(c, pos)),
                 ')' => Ok(Token::RightParen(c, pos)),
@@ -52,10 +54,50 @@ impl Scanner {
                 '+' => Ok(Token::Plus(c, pos)),
                 ';' => Ok(Token::Semicolon(c, pos)),
                 '*' => Ok(Token::Star(c, pos)),
-                _ => Err(ScannerError::UnexpectedToken(c, pos)),
+                '!' => match char_indice.next_if_eq(&(pos + 1, '=')) {
+                    Some(_) => Ok(Token::BangEqual("!=".to_string(), pos)),
+                    None => Ok(Token::Bang('!', pos)),
+                },
+                '=' => match char_indice.next_if_eq(&(pos + 1, '=')) {
+                    Some(_) => Ok(Token::EqualEqual("==".to_string(), pos)),
+                    None => Ok(Token::Equal('=', pos)),
+                },
+                '<' => match char_indice.next_if_eq(&(pos + 1, '=')) {
+                    Some(_) => Ok(Token::LessEqual("<=".to_string(), pos)),
+                    None => Ok(Token::Less('<', pos)),
+                },
+                '>' => match char_indice.next_if_eq(&(pos + 1, '=')) {
+                    Some(_) => Ok(Token::GreaterEqual(">=".to_string(), pos)),
+                    None => Ok(Token::Greater('>', pos)),
+                },
+                '/' => match char_indice.next_if_eq(&(pos + 1, '/')) {
+                    Some(_) => {
+                        let _comment: String = char_indice
+                            .by_ref()
+                            .take_while(|(_pos, ch)| *ch != '\n')
+                            .map(|(_pos, ch)| ch)
+                            .collect();
+
+                        self.line += 1;
+                        Ok(Token::Comment)
+                    }
+                    None => Ok(Token::Slash(c, pos)),
+                },
+                '\r' | '\t' | ' ' => Ok(Token::Skip),
+                '\n' => {
+                    self.line += 1;
+                    Ok(Token::Skip)
+                }
+                _ => Err(ScannerError::UnexpectedToken(c, self.line)),
             };
 
-            self.tokens.push(token?);
+            match token {
+                Ok(t) => match t {
+                    Token::Comment | Token::Skip => {}
+                    _ => self.tokens.push(t),
+                },
+                Err(e) => return Err(e),
+            }
         }
 
         Ok(&self.tokens)
@@ -67,9 +109,10 @@ mod tests {
     use super::*;
     #[test]
     fn test_scan_tokens_iter() {
-        let contents = "+++
-        ++}}   
-                }---";
+        let contents = "+++++}}/}->===<=--//this is a comment
+            //another comment
+            //and another one
+            ";
 
         let mut scanner = Scanner::new(contents.to_string());
         println!("{:?}", scanner);
