@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{borrow::Borrow, fmt::Display};
 
 use crate::token::Token;
 
@@ -88,6 +88,45 @@ impl Scanner {
                     self.line += 1;
                     Ok(Token::Skip)
                 }
+                '"' => {
+                    let mut last_char: char = char::default();
+                    let string_literal: String = char_indice
+                        .by_ref()
+                        .take_while(|(_pos, ch)| {
+                            if *ch == '\n' {
+                                self.line += 1
+                            };
+                            last_char = *ch;
+                            *ch != '"'
+                        })
+                        .map(|(_pos, ch)| ch)
+                        .collect();
+
+                    match last_char {
+                        '"' => Ok(Token::String(string_literal)),
+                        _ => Err(ScannerError::UnterminatedString(string_literal, pos)),
+                    }
+                }
+                c if c.is_numeric() => {
+                    let digit = char_indice
+                        .by_ref()
+                        .take_while(|(_pos, ch)| {
+                            if ch.is_numeric() {
+                                true
+                            } else {
+                                match char_indice.peek() {
+                                    Some((_pos, next_ch)) => *ch == '.' && next_ch.is_numeric(),
+                                    None => false,
+                                }
+                            }
+                        })
+                        .map(|(_pos, ch)| ch)
+                        .collect::<String>();
+
+                    let digit = digit.parse::<i64>().unwrap();
+
+                    Ok(Token::Number(digit))
+                }
                 _ => Err(ScannerError::UnexpectedToken(c, self.line)),
             };
 
@@ -112,7 +151,7 @@ mod tests {
         let contents = "+++++}}/}->===<=--//this is a comment
             //another comment
             //and another one
-            ";
+            \"a new string";
 
         let mut scanner = Scanner::new(contents.to_string());
         println!("{:?}", scanner);

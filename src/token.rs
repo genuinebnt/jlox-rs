@@ -24,8 +24,8 @@ pub enum Token {
 
     // Literals.
     Identifier,
-    String,
-    Number,
+    String(String),
+    Number(i64),
     Comment,
 
     // Keywords.
